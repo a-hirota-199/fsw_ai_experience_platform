@@ -65,37 +65,43 @@ make frontend       # 別ターミナルで Streamlit チャットを起動
 ブラウザで Streamlit を開き、「姿勢データを5Hzでテレメトリ送出したい」等を入力すると、
 AIが質問を返し、2ターン目以降で構造化要件（JSON）が確定する。
 
+`.env` は backend / frontend 起動時に**自動読込**される（手動 source 不要）。provider を
+切り替えるには `.env` の `LLM_PROVIDER` を変える（**既定は `mock` なので、実LLMを使うには必ず変更が必要**）。
+
 ### 実 Claude（Anthropic API）で試す
 
-mock を実 Claude に差し替える（swappable 境界の provider 切替のみ）。
-
 ```bash
-cp .env.example .env
+cp .env.example .env   # 初回のみ
 # .env を編集:
-#   LLM_PROVIDER=anthropic
-#   ANTHROPIC_API_KEY=sk-ant-...        # 自分のキー（BYOK）
-#   ANTHROPIC_MODEL=claude-opus-4-8     # 最も高性能を試すなら claude-fable-5
-set -a && . ./.env && set +a            # .env を環境に読み込む
-make backend                            # 別ターミナルで make frontend
+#   LLM_PROVIDER=anthropic            # ← mock から変更（必須）
+#   ANTHROPIC_API_KEY=sk-ant-...      # 自分のキー（BYOK）
+#   ANTHROPIC_MODEL=claude-opus-4-8   # 最も高性能を試すなら claude-fable-5
+make backend                         # 別ターミナルで make frontend
 ```
 
 キー未設定のまま anthropic を選ぶと、500 ではなくチャットに「LLM呼び出しエラー: ANTHROPIC_API_KEY が未設定です」と表示される。
 
 ### 実 Google Gemini で試す
 
-Claude の代替。provider を `gemini` にするだけ。
-
 ```bash
-cp .env.example .env
+cp .env.example .env   # 初回のみ
 # .env を編集:
-#   LLM_PROVIDER=gemini
-#   GEMINI_API_KEY=...                  # 自分のキー（GOOGLE_API_KEY でも可; BYOK）
-#   GEMINI_MODEL=gemini-2.5-flash       # 既定
-set -a && . ./.env && set +a
-make backend                            # 別ターミナルで make frontend
+#   LLM_PROVIDER=gemini               # ← mock から変更（必須）
+#   GEMINI_API_KEY=...                # 自分のキー（GOOGLE_API_KEY でも可; BYOK）
+#   GEMINI_MODEL=gemini-2.5-flash     # 既定
+make backend                         # 別ターミナルで make frontend
 ```
 
 APIキーは [Google AI Studio](https://aistudio.google.com/apikey) で発行する。
+
+### 現在の provider を確認する
+
+```bash
+curl -s localhost:8000/health      # {"status":"ok","llm_provider":"gemini"} のように表示
+```
+
+`llm_provider` が `mock` のままなら `.env` の `LLM_PROVIDER` が未変更（または別シェルで
+backend を起動して `.env` を読めていない）。mock は定型応答（app_name が `sample_tlm_app`）で見分けられる。
 
 ## ステータス
 

@@ -1,0 +1,9 @@
+# design.md（Anthropic Claude.com デザインシステム）に準拠したテーマ。
+# cream canvas + coral primary + warm ink。詳細な editorial 表現は frontend/app.py のCSSで補う。
+[theme]
+base = "light"
+primaryColor = "#cc785c"            # coral / primary
+backgroundColor = "#faf9f5"         # canvas（warm cream）
+secondaryBackgroundColor = "#efe9de" # surface-card
+textColor = "#141413"               # ink
+font = "sans serif"

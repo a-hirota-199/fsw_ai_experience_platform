@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 
 from .flow.structure import structure_step
@@ -15,7 +17,8 @@ app = FastAPI(title="fsw_ai_experience_platform backend", version="0.0.1")
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    # llm_provider で現在の provider を確認できる（mock のままなら .env 未反映）
+    return {"status": "ok", "llm_provider": os.getenv("LLM_PROVIDER", "mock")}
 
 
 @app.post("/chat/structure", response_model=StructureResponse)
