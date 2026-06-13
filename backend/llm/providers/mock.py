@@ -15,6 +15,13 @@ class MockProvider(LLMProvider):
     name = "mock"
 
     def complete(self, messages: list[dict], *, system: str | None = None, **opts) -> str:
+        # コード生成リクエストは穴を空で返す（generate側がスタブで補完する）
+        if system and "GENERATE_APP" in system:
+            return json.dumps(
+                {"holes": {}, "notes": ["（mock）穴は未生成スタブ。実LLM(gemini/anthropic)で埋まります"]},
+                ensure_ascii=False,
+            )
+
         user_turns = [m for m in messages if m.get("role") == "user"]
         last = user_turns[-1]["content"] if user_turns else ""
 

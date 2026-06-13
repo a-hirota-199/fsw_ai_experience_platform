@@ -42,3 +42,18 @@ class StructureResponse(BaseModel):
     mode: Literal["ask", "final"]
     message: str
     requirement: Optional[StructuredRequirement] = None
+
+
+class GeneratedFile(BaseModel):
+    path: str
+    content: str
+
+
+class GenerateRequest(BaseModel):
+    requirement: StructuredRequirement
+
+
+class GenerateResponse(BaseModel):
+    app_name: str
+    files: list[GeneratedFile] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
