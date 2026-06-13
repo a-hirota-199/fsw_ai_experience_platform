@@ -21,4 +21,7 @@ def health() -> dict:
 @app.post("/chat/structure", response_model=StructureResponse)
 def chat_structure(req: StructureRequest) -> StructureResponse:
     """要件構造化フローを1ステップ進める（Sprint 0）。"""
-    return structure_step(req.messages)
+    try:
+        return structure_step(req.messages)
+    except Exception as e:  # provider未設定・APIエラー等は体験を止めずチャットに返す
+        return StructureResponse(mode="ask", message=f"LLM呼び出しエラー: {e}", requirement=None)

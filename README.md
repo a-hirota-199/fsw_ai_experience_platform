@@ -21,7 +21,7 @@
 | frontend (IDE) | VSCode拡張 (TypeScript) | Issue選択→実装、Webの会話文脈を `project_id` 経由で共有 |
 | 自動化 | n8n (セルフホスト) | サービス間の配線とトリガ（③〜⑧）。ロジックは持たず backend API を叩く |
 | 状態 | PostgreSQL | 設定・プロジェクト状態・Issue/PR紐付け・会話を永続 |
-| LLM | Claude（最新モデル）＋swappable境界 | provider非依存。BYOK/ローカル差し替えは provider 追加だけ |
+| LLM | swappable境界（mock / Claude / Gemini） | provider非依存。BYOK/差し替えは provider 追加だけ |
 
 ## ディレクトリ構成
 
@@ -64,6 +64,38 @@ make frontend       # 別ターミナルで Streamlit チャットを起動
 
 ブラウザで Streamlit を開き、「姿勢データを5Hzでテレメトリ送出したい」等を入力すると、
 AIが質問を返し、2ターン目以降で構造化要件（JSON）が確定する。
+
+### 実 Claude（Anthropic API）で試す
+
+mock を実 Claude に差し替える（swappable 境界の provider 切替のみ）。
+
+```bash
+cp .env.example .env
+# .env を編集:
+#   LLM_PROVIDER=anthropic
+#   ANTHROPIC_API_KEY=sk-ant-...        # 自分のキー（BYOK）
+#   ANTHROPIC_MODEL=claude-opus-4-8     # 最も高性能を試すなら claude-fable-5
+set -a && . ./.env && set +a            # .env を環境に読み込む
+make backend                            # 別ターミナルで make frontend
+```
+
+キー未設定のまま anthropic を選ぶと、500 ではなくチャットに「LLM呼び出しエラー: ANTHROPIC_API_KEY が未設定です」と表示される。
+
+### 実 Google Gemini で試す
+
+Claude の代替。provider を `gemini` にするだけ。
+
+```bash
+cp .env.example .env
+# .env を編集:
+#   LLM_PROVIDER=gemini
+#   GEMINI_API_KEY=...                  # 自分のキー（GOOGLE_API_KEY でも可; BYOK）
+#   GEMINI_MODEL=gemini-2.5-flash       # 既定
+set -a && . ./.env && set +a
+make backend                            # 別ターミナルで make frontend
+```
+
+APIキーは [Google AI Studio](https://aistudio.google.com/apikey) で発行する。
 
 ## ステータス
 

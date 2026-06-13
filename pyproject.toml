@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.6",
     "streamlit>=1.33",
     "requests>=2.31",
+    "anthropic>=0.40",
+    "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]

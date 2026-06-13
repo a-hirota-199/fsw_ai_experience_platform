@@ -1,7 +1,6 @@
 """LLM provider のファクトリ。
 
-`LLM_PROVIDER`（既定: mock）で provider を選ぶ。anthropic provider は
-Sprint 1+ で `providers/anthropic.py` を追加して有効化する。
+`LLM_PROVIDER`（既定: mock）で provider を選ぶ。対応: mock / anthropic / gemini。
 """
 from __future__ import annotations
 
@@ -16,6 +15,11 @@ def get_provider(name: str | None = None) -> LLMProvider:
     if name == "mock":
         return MockProvider()
     if name == "anthropic":
-        # Sprint 1+ で providers/anthropic.py を追加して有効化する
-        raise NotImplementedError("anthropic provider は未実装（Sprint 1+ で追加）")
+        from .providers.anthropic import AnthropicProvider
+
+        return AnthropicProvider()
+    if name == "gemini":
+        from .providers.gemini import GeminiProvider
+
+        return GeminiProvider()
     raise ValueError(f"unknown LLM provider: {name}")
