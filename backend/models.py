@@ -57,3 +57,20 @@ class GenerateResponse(BaseModel):
     app_name: str
     files: list[GeneratedFile] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+class PublishRequest(BaseModel):
+    """生成物を GitHub に公開（branch+PR）するための入力（Sprint 1 後半）。"""
+
+    app_name: str
+    files: list[GeneratedFile] = Field(default_factory=list)
+    summary: str = ""
+
+
+class PublishResponse(BaseModel):
+    ok: bool = False
+    repo: str = ""
+    branch: str = ""
+    pr_url: str = ""
+    message: str = ""
+    notes: list[str] = Field(default_factory=list)

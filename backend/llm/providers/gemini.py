@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 
 from .base import LLMProvider
@@ -33,6 +34,23 @@ def _error_code(e: Exception) -> int | None:
     # メッセージ先頭の "503 UNAVAILABLE..." 形式からの救済
     head = str(e).strip()[:3]
     return int(head) if head.isdigit() else None
+
+
+def _is_daily_quota(msg: str) -> bool:
+    """429 が「1日あたり」クォータ枯渇かを判定する（PerDay 系は数秒では回復しない）。"""
+    m = msg.lower()
+    return "perday" in m or "per day" in m or "per-day" in m
+
+
+def _retry_delay(msg: str, attempt: int) -> float:
+    """サーバ推奨の待ち時間（"retry in 1.87s" / retryDelay）があれば尊重し、無ければ指数。"""
+    m = re.search(r"retry in ([\d.]+)\s*s", msg, re.IGNORECASE)
+    if m:
+        try:
+            return min(float(m.group(1)) + 0.5, 30.0)  # 余裕を少し足す/上限30s
+        except ValueError:
+            pass
+    return _BACKOFF_BASE_S * (2**attempt)
 
 
 class GeminiProvider(LLMProvider):
@@ -68,8 +86,12 @@ class GeminiProvider(LLMProvider):
         return resp.text or ""
 
     def _generate_with_retry(self, contents: list, config: dict):
-        """過負荷(503)/レート制限(429)等の一時的エラーを指数バックオフで再試行する。"""
-        last_exc: Exception | None = None
+        """一時的エラーを指数バックオフで再試行する。
+
+        429 は2種類を区別する:
+          - 日次クォータ枯渇(PerDay) → 数秒では回復しないのでリトライせず、即座に案内を返す。
+          - 毎分レート制限など        → サーバ推奨の待ち時間を尊重して再試行する。
+        """
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 return self._client.models.generate_content(
@@ -77,14 +99,32 @@ class GeminiProvider(LLMProvider):
                 )
             except Exception as e:  # SDK例外型に依存せずHTTPコードで判定
                 code = _error_code(e)
+                msg = str(e)
+
+                # 日次クォータ枯渇はリトライ無意味 → 即座に分かりやすく案内
+                if code == 429 and _is_daily_quota(msg):
+                    raise RuntimeError(self._quota_message()) from e
+
+                # リトライ対象外、または再試行回数を使い切った
                 if code not in _RETRYABLE_CODES or attempt == _MAX_RETRIES:
+                    if code == 429:
+                        raise RuntimeError(
+                            "Gemini のレート制限（429）に達しました。少し待ってから再送してください。"
+                        ) from e
                     raise
-                last_exc = e
-                delay = _BACKOFF_BASE_S * (2**attempt)
+
+                delay = _retry_delay(msg, attempt)
                 logger.warning(
-                    "Gemini %s（code=%s）: %.0fs後に再試行 (%d/%d)",
-                    "一時的エラー", code, delay, attempt + 1, _MAX_RETRIES,
+                    "Gemini 一時的エラー(code=%s): %.1fs後に再試行 (%d/%d)",
+                    code, delay, attempt + 1, _MAX_RETRIES,
                 )
                 time.sleep(delay)
-        assert last_exc is not None  # 到達しない（ループ内でraise/returnする）
-        raise last_exc
+        raise RuntimeError("Gemini 呼び出しに失敗しました")  # 到達しない
+
+    def _quota_message(self) -> str:
+        return (
+            f"Gemini無料枠の1日あたりのリクエスト上限に達しました（model={self.model}）。"
+            "対処: ①翌日のリセットを待つ ②Google AI Studio で課金を有効化して上限を上げる "
+            "③当面は .env を LLM_PROVIDER=mock にして他機能（コード生成・GitHub公開・UI）の開発を続ける "
+            "④別モデル（例: GEMINI_MODEL=gemini-2.5-flash-lite）に切り替えると別枠で凌げる場合があります。"
+        )
