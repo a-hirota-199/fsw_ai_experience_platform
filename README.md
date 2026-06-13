@@ -1,0 +1,72 @@
+# fsw_ai_experience_platform
+
+衛星FSW特化 AI開発プラットフォームの **体験版プロトタイプ**。
+「オンボーディング → 要件をチャットで構造化 → cFSコード生成 → GitHubにPR → Issue起票 → AIレビュー → ビルド → Slack通知 → 人間が承認」という**プラットフォーム全体の一気通貫を、薄く・本物として体験**することを目的とする学習用プロトタイプ。
+
+> 設計・計画の詳細は別リポジトリ `fsw_ai_driven_development`（mkdocsドキュメント）の
+> `docs/plan/experience-prototype-plan.md` を参照。本リポジトリはその実装。
+
+## 目的（1文）
+
+生成AIでソフトウェア開発を行う体験そのものをチームで掴み、**AI駆動FSW開発のどこが効いて・どこで詰まるかを学ぶ**こと。プロダクトではなく実験台であり、判断基準は「信用」より「学び」。
+
+## アーキテクチャ（最小構成）
+
+`docker-compose` で以下を一括起動する想定:
+
+| 要素 | 採用 | 役割 |
+|---|---|---|
+| backend | FastAPI (Python) | AIオーケストレーション＋外部抽象化レイヤー＋状態管理＋Webhook受け口 |
+| frontend (Web) | Streamlit | オンボ設定 / 対話チャット / 進捗ダッシュボード の3画面 |
+| frontend (IDE) | VSCode拡張 (TypeScript) | Issue選択→実装、Webの会話文脈を `project_id` 経由で共有 |
+| 自動化 | n8n (セルフホスト) | サービス間の配線とトリガ（③〜⑧）。ロジックは持たず backend API を叩く |
+| 状態 | PostgreSQL | 設定・プロジェクト状態・Issue/PR紐付け・会話を永続 |
+| LLM | Claude（最新モデル）＋swappable境界 | provider非依存。BYOK/ローカル差し替えは provider 追加だけ |
+
+## ディレクトリ構成
+
+```
+backend/            FastAPI: AI・外部抽象化・状態管理
+  api/                チャット・生成・レビュー・Webhook受け口
+  flow/               要件構造化 / コード生成 / 自己レビュー
+  integrations/       外部サービス抽象化レイヤー（github/jira/slack/redmine）
+  llm/                swappable LLM 境界（client + providers）
+  templates/          cFSアプリ骨格（穴あきテンプレ; skeleton_app基点）
+frontend/           Streamlit: オンボ設定 / チャット / 進捗 の3画面
+vscode-extension/   TypeScript: backend APIを叩く薄いIDEクライアント
+n8n/                ワークフロー定義（③〜⑧のパイプライン）
+cfs-build/          軽量検証用 Dockerイメージ（ビルド段）
+sessions/           会話ログ・つまずき記録（= 学びの成果物）
+```
+
+## 開発の進め方（Sprint）
+
+| Sprint | 内容 |
+|---|---|
+| 0 | 基盤とチャットの背骨（要件→構造化JSON、swappable LLM境界） |
+| 1 | コード生成＋GitHub実接続（要件確定→PRが立つ） |
+| 2 | n8n導入＋自動化パイプライン（③〜⑥、イベントはポーリング既定） |
+| 3 | 軽量検証＋Slack通知＋承認（⑦⑧⑨） |
+| 4 | オンボーディング設定＋外部抽象化レイヤーの実証（GitHub⇄Jira切替） |
+| 5 | 進捗ダッシュボード |
+| 6 | VSCode拡張（IDE実装層）＋全体の振り返り |
+
+## ローカル実行（Sprint 0：ローカルvenv先行）
+
+Sprint 0 は APIキー不要のモック provider で動く（`LLM_PROVIDER=mock`）。
+
+```bash
+make install        # .venv 作成＋依存インストール（pip install -e ".[dev]"）
+make test           # 要件構造化フローの一周をpytestで検証
+make backend        # FastAPI を :8000 で起動
+make frontend       # 別ターミナルで Streamlit チャットを起動
+```
+
+ブラウザで Streamlit を開き、「姿勢データを5Hzでテレメトリ送出したい」等を入力すると、
+AIが質問を返し、2ターン目以降で構造化要件（JSON）が確定する。
+
+## ステータス
+
+Sprint 0 実装中。チャット→要件構造化の縦切りが mock provider で一周する。
+- 次: Anthropic provider 追加（実Claude接続）、Sprint 1（コード生成＋GitHub実接続）。
+- 後回し: docker-compose（postgres＋backend＋frontend）一括起動。
